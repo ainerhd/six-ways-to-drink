@@ -40,8 +40,48 @@
       display: flex;
       flex-direction: column;
     }
-    header { text-align: center; margin-bottom: 12px; }
-    header h1 { font-size: 1.5rem; margin: 0; letter-spacing: .02em; }
+    header { position: relative; text-align: center; margin-bottom: 12px; padding: 0 52px; }
+    header h1 { font-size: 1.5rem; margin: 0; line-height: 44px; letter-spacing: .02em; }
+    .icon-btn { min-height: 44px; min-width: 44px; padding: 0; border-radius: 12px; background: var(--card); font-size: 1.2rem; line-height: 1; }
+    #menu-btn { position: absolute; right: 0; top: 0; display: grid; place-items: center; }
+    .burger, .burger::before, .burger::after { display: block; width: 20px; height: 2px; border-radius: 2px; background: var(--text); content: ""; position: relative; }
+    .burger::before { position: absolute; left: 0; top: -6px; }
+    .burger::after { position: absolute; left: 0; top: 6px; }
+
+    /* Menü */
+    .menu { position: fixed; inset: 0; z-index: 20; }
+    .menu[hidden] { display: none; }
+    .menu-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.55); animation: fade .15s ease; }
+    .menu-panel {
+      position: absolute; top: 0; right: 0; bottom: 0;
+      width: min(320px, 86vw);
+      background: var(--bg2);
+      padding: calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 16px);
+      display: flex; flex-direction: column; gap: 10px;
+      box-shadow: -10px 0 30px rgba(0,0,0,.4);
+      animation: slide .18s ease;
+      overflow-y: auto;
+    }
+    .menu-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .menu-head strong { font-size: 1.2rem; }
+    .menu-item { text-align: left; display: flex; flex-direction: column; gap: 2px; background: var(--card); }
+    .menu-item small { color: var(--muted); font-size: .8rem; }
+    .menu-item.danger { color: var(--danger); }
+    .menu-version { margin-top: auto; font-size: .8rem; text-align: center; }
+    @keyframes fade { from { opacity: 0; } }
+    @keyframes slide { from { transform: translateX(100%); } }
+
+    /* Regeln-Dialog */
+    .sheet { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; }
+    .sheet[hidden] { display: none; }
+    .sheet .card { position: relative; width: min(440px, 100%); max-height: 90vh; overflow-y: auto; }
+    .sheet ol { margin: 10px 0; padding-left: 1.4em; line-height: 1.6; }
+    #rules-content p { margin-top: 10px; }
+
+    .banner { display: flex; align-items: center; gap: 10px; background: rgba(61,220,151,.15); border: 2px solid var(--ok); border-radius: 14px; padding: 8px 8px 8px 12px; margin-bottom: 12px; }
+    .banner[hidden] { display: none; }
+    .banner span { flex: 1; font-size: .9rem; }
+    .banner button { min-height: 40px; background: var(--ok); color: var(--accent-text); font-weight: 700; }
     header h1 span { color: var(--accent); }
     section { display: flex; flex-direction: column; gap: 14px; flex: 1; }
     section[hidden] { display: none; }
@@ -138,7 +178,15 @@
 </head>
 <body>
 <main>
-  <header><h1><span>Six</span> ways to drink</h1></header>
+  <header>
+    <h1><span>Six</span> ways to drink</h1>
+    <button id="menu-btn" class="icon-btn" aria-label="Menü öffnen" aria-haspopup="true" aria-expanded="false" aria-controls="menu"><span class="burger"></span></button>
+  </header>
+
+  <div id="update-banner" class="banner" role="status" hidden>
+    <span>Neue Version verfügbar. Der Spielstand bleibt erhalten.</span>
+    <button id="reload-btn" class="btn-small">Neu laden</button>
+  </div>
 
   <!-- Setup -->
   <section id="screen-setup" hidden>
@@ -162,15 +210,17 @@
 
     <details class="card">
       <summary>Regeln</summary>
-      <ol>
-        <li>Alle trinken</li>
-        <li>Person links trinkt</li>
-        <li>Person rechts trinkt</li>
-        <li>Du bestimmst, wer trinkt</li>
-        <li>Du trinkst selbst</li>
-        <li>Du bestimmst zwei Personen für ein Duell</li>
-      </ol>
-      <p class="muted" style="margin-top:10px">Wer trinkt, beantwortet eine Frage. Beim Duell beantworten beide die Duell-Frage, die Gruppe entscheidet, der Verlierer muss exen.</p>
+      <div id="rules-content">
+        <ol>
+          <li>Alle trinken</li>
+          <li>Person links trinkt</li>
+          <li>Person rechts trinkt</li>
+          <li>Du bestimmst, wer trinkt</li>
+          <li>Du trinkst selbst</li>
+          <li>Du bestimmst zwei Personen für ein Duell</li>
+        </ol>
+        <p class="muted">Wer trinkt, beantwortet eine Frage. Beim Duell beantworten beide die Duell-Frage, die Gruppe entscheidet, der Verlierer muss exen.</p>
+      </div>
     </details>
 
     <div class="spacer"></div>
@@ -191,15 +241,39 @@
     <div id="roll-die"></div>
     <div class="spacer"></div>
     <button id="roll-btn" class="btn-primary">Würfeln</button>
-    <div class="row">
-      <button id="edit-btn" class="btn-ghost">Spieler &amp; Kategorien</button>
-      <button id="reset-btn" class="btn-ghost">Neues Spiel</button>
-    </div>
   </section>
 
   <!-- Ergebnis -->
   <section id="screen-result" hidden></section>
 </main>
+
+<!-- Menü -->
+<div id="menu" class="menu" hidden>
+  <div class="menu-backdrop" data-close-menu></div>
+  <nav class="menu-panel" aria-label="Menü">
+    <div class="menu-head">
+      <strong>Menü</strong>
+      <button class="icon-btn" data-close-menu aria-label="Menü schließen">✕</button>
+    </div>
+    <button id="menu-restart" class="menu-item">Neues Spiel<small>Spieler bleiben, Reihenfolge und Fragen starten neu</small></button>
+    <button id="menu-setup" class="menu-item">Spieler &amp; Kategorien<small>Spieler ändern, Kategorien an- und abwählen</small></button>
+    <button id="menu-rules" class="menu-item">Regeln</button>
+    <button id="menu-wipe" class="menu-item danger">Alles löschen<small>Spieler und Spielstand entfernen</small></button>
+    <p id="menu-version" class="muted menu-version"></p>
+  </nav>
+</div>
+
+<!-- Regeln -->
+<div id="rules-sheet" class="sheet" hidden>
+  <div class="menu-backdrop" data-close-rules></div>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+    <div class="menu-head">
+      <strong id="rules-title">Regeln</strong>
+      <button class="icon-btn" data-close-rules aria-label="Regeln schließen">✕</button>
+    </div>
+    <div id="rules-body"></div>
+  </div>
+</div>
 
 <script>
 (() => {
@@ -209,6 +283,9 @@
   const MIN_PLAYERS = 3;
   const CATEGORIES = [
     { id: 'harmlos', label: 'Harmlos' },
+    { id: 'party', label: 'Party' },
+    { id: 'zukunft', label: 'Zukunft' },
+    { id: 'freundeskreis', label: 'Freundeskreis' },
     { id: 'peinlich', label: 'Peinlich' },
     { id: 'spicy', label: 'Spicy' }
   ];
@@ -239,12 +316,14 @@
   // ---------- Zustand ----------
   let questions = [];
   let round = null;
-  let state = loadState() || {
+  const freshState = () => ({
     players: [],
     current: 0,
     categories: Object.fromEntries(CATEGORIES.map(c => [c.id, true])),
     used: []
-  };
+  });
+  let state = loadState() || freshState();
+  normalizeCategories();
 
   function loadState() {
     try {
@@ -255,6 +334,12 @@
   }
   function saveState() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* ignorieren */ }
+  }
+  // Neue Kategorien (z. B. nach einem Update) sind standardmäßig aktiv
+  function normalizeCategories() {
+    for (const c of CATEGORIES) {
+      if (typeof state.categories[c.id] !== 'boolean') state.categories[c.id] = true;
+    }
   }
 
   function rand(n) {
@@ -275,6 +360,13 @@
       const data = await res.json();
       questions = data.filter(q => q && q.id != null && q.text && (q.type === 'normal' || q.type === 'duel'));
       if (!questions.length) throw new Error('keine gültigen Fragen');
+      // Kategorien, die nur in questions.json stehen, automatisch ergänzen
+      for (const q of questions) {
+        if (q.type === 'normal' && q.category && !CATEGORIES.some(c => c.id === q.category)) {
+          CATEGORIES.push({ id: q.category, label: q.category.charAt(0).toUpperCase() + q.category.slice(1) });
+        }
+      }
+      normalizeCategories();
     } catch (e) {
       const box = $('load-error');
       box.hidden = false;
@@ -552,16 +644,92 @@
     show('roll');
   });
   $('roll-btn').addEventListener('click', doRoll);
-  $('edit-btn').addEventListener('click', () => show('setup'));
-  $('reset-btn').addEventListener('click', () => {
-    if (!confirm('Neues Spiel starten? Spieler bleiben erhalten, Fragen und Reihenfolge werden zurückgesetzt.')) return;
+
+  // ---------- Menü ----------
+  const menu = $('menu');
+  const menuBtn = $('menu-btn');
+  function openMenu() {
+    menu.hidden = false;
+    menuBtn.setAttribute('aria-expanded', 'true');
+    $('menu-restart').focus();
+  }
+  function closeMenu() {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    menuBtn.setAttribute('aria-expanded', 'false');
+    menuBtn.focus();
+  }
+  function openRules() {
+    closeMenu();
+    $('rules-body').replaceChildren(...[...$('rules-content').children].map(c => c.cloneNode(true)));
+    $('rules-sheet').hidden = false;
+  }
+  const closeRules = () => { $('rules-sheet').hidden = true; };
+
+  function restartGame() {
+    closeMenu();
+    if (!confirm('Neues Spiel starten? Spieler und Kategorien bleiben, Reihenfolge und Fragen starten neu.')) return;
     state.current = 0;
     state.used = [];
+    round = null;
     saveState();
-    show('roll');
+    show(n() >= MIN_PLAYERS && questions.length ? 'roll' : 'setup');
+  }
+  function wipeAll() {
+    closeMenu();
+    if (!confirm('Alles löschen? Alle Spieler und der Spielstand werden entfernt.')) return;
+    state = freshState();
+    normalizeCategories();
+    round = null;
+    saveState();
+    show('setup');
+  }
+
+  menuBtn.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()));
+  menu.querySelectorAll('[data-close-menu]').forEach(b => b.addEventListener('click', closeMenu));
+  $('rules-sheet').querySelectorAll('[data-close-rules]').forEach(b => b.addEventListener('click', closeRules));
+  $('menu-restart').addEventListener('click', restartGame);
+  $('menu-setup').addEventListener('click', () => { closeMenu(); round = null; show('setup'); });
+  $('menu-rules').addEventListener('click', openRules);
+  $('menu-wipe').addEventListener('click', wipeAll);
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    closeRules();
+    closeMenu();
   });
 
+  // ---------- Version und Update-Hinweis ----------
+  // version.json wird im LXC vom Updater geschrieben. Lokal gibt es sie nicht.
+  let loadedVersion = null;
+  async function fetchVersion() {
+    try {
+      const res = await fetch('version.json', { cache: 'no-store' });
+      if (!res.ok) return null;
+      const v = await res.json();
+      return v && v.commit ? v : null;
+    } catch (e) { return null; }
+  }
+  function showVersion(v) {
+    const d = v && v.date ? new Date(v.date) : null;
+    $('menu-version').textContent = v
+      ? 'Version ' + v.commit + (d && !isNaN(d) ? ' vom ' + d.toLocaleDateString('de-DE') : '')
+      : 'Version: lokal';
+  }
+  async function checkForUpdate() {
+    const v = await fetchVersion();
+    if (!loadedVersion) {
+      loadedVersion = v;
+      showVersion(v);
+      return;
+    }
+    if (v && v.commit !== loadedVersion.commit) $('update-banner').hidden = false;
+  }
+  $('reload-btn').addEventListener('click', () => location.reload());
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+  setInterval(checkForUpdate, 10 * 60 * 1000);
+
   // ---------- Start ----------
+  checkForUpdate();
   loadQuestions().then(() => {
     show(n() >= MIN_PLAYERS && questions.length ? 'roll' : 'setup');
   });

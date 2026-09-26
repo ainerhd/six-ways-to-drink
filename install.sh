@@ -7,7 +7,7 @@
 #
 # Alle Abfragen haben Defaults. Mit YES=1 werden die Defaults ohne Rückfrage übernommen.
 # Überschreibbar per Umgebungsvariable: CTID, CT_HOSTNAME, STORAGE, TEMPLATE_STORAGE,
-# BRIDGE, CORES, MEMORY, DISK, NET (dhcp oder IP/CIDR), GATEWAY, REPO_URL, BRANCH
+# BRIDGE, CORES, MEMORY, DISK, NET (dhcp oder IP/CIDR), GATEWAY, AUTO_UPDATE (j/n), REPO_URL, BRANCH
 
 set -euo pipefail
 
@@ -83,6 +83,7 @@ fi
 ask CORES            "CPU-Kerne"                            "${CORES:-1}"
 ask MEMORY           "RAM in MB"                            "${MEMORY:-512}"
 ask DISK             "Disk in GB"                           "${DISK:-2}"
+ask AUTO_UPDATE      "Automatische Updates (stündlich) j/n" "${AUTO_UPDATE:-j}"
 
 # ---------- Validierung ----------
 [[ "$CTID" =~ ^[0-9]+$ && "$CTID" -ge 100 ]] || die "Ungültige Container-ID: $CTID"
@@ -96,6 +97,11 @@ grep -qx "$TEMPLATE_STORAGE" <<<"$tmpl_storages" || die "Storage '$TEMPLATE_STOR
 [[ "$CORES" =~ ^[0-9]+$ && "$CORES" -ge 1 ]] || die "Ungültige CPU-Anzahl: $CORES"
 [[ "$MEMORY" =~ ^[0-9]+$ && "$MEMORY" -ge 128 ]] || die "Ungültiger RAM-Wert: $MEMORY"
 [[ "$DISK" =~ ^[0-9]+$ && "$DISK" -ge 1 ]] || die "Ungültige Disk-Größe: $DISK"
+case "$AUTO_UPDATE" in
+  [jJyY]*) AUTO_UPDATE=1 ;;
+  [nN]*)   AUTO_UPDATE=0 ;;
+  *)       die "Auto-Update bitte mit j oder n beantworten." ;;
+esac
 if [[ "$NET" == "dhcp" ]]; then
   NET_CONF="name=eth0,bridge=${BRIDGE},ip=dhcp"
 else
@@ -124,6 +130,7 @@ echo "  CPU / RAM    : ${CORES} Kern(e), ${MEMORY} MB"
 echo "  Netzwerk     : ${BRIDGE}, ${NET}${GATEWAY:+, GW ${GATEWAY}}"
 echo "  Typ          : unprivilegiert, nesting=1, Autostart an"
 echo "  App          : ${REPO_URL} (${BRANCH}) -> ${APP_DIR}"
+echo "  Auto-Update  : $([[ "$AUTO_UPDATE" == "1" ]] && echo "an (stündlich, systemd-Timer)" || echo "aus (manuell mit 'update')")"
 echo
 if [[ "${YES:-0}" != "1" ]]; then
   read -r -p "${C_BOLD}Container jetzt anlegen? [j/N]${C_RESET} " confirm </dev/tty || true
@@ -210,10 +217,14 @@ systemctl enable --now nginx >/dev/null 2>&1
 systemctl reload nginx
 
 install -m 0755 "${APP_DIR}/update.sh" /usr/local/bin/update
+/usr/local/bin/update >/dev/null   # schreibt version.json
+if [[ "$AUTO_UPDATE" == "1" ]]; then
+  /usr/local/bin/update --enable-auto >/dev/null
+fi
 apt-get clean
 SETUP
 )"
-pct exec "$CTID" -- env APP="$APP" APP_DIR="$APP_DIR" REPO_URL="$REPO_URL" BRANCH="$BRANCH" bash -c "$SETUP_SCRIPT"
+pct exec "$CTID" -- env APP="$APP" APP_DIR="$APP_DIR" REPO_URL="$REPO_URL" BRANCH="$BRANCH" AUTO_UPDATE="$AUTO_UPDATE" bash -c "$SETUP_SCRIPT"
 ok "App installiert"
 
 # ---------- Ergebnis ----------
@@ -224,7 +235,13 @@ echo "  Container : ${CTID} (${CT_HOSTNAME})"
 echo "  IP        : ${IP:-unbekannt}"
 echo "  URL       : http://${IP:-<ip>}/"
 echo
-echo "  Update    : pct exec ${CTID} -- update"
+echo "  Update    : pct exec ${CTID} -- update            (jetzt aktualisieren)"
+echo "              pct exec ${CTID} -- update --status   (Version, Auto-Update)"
+if [[ "$AUTO_UPDATE" == "1" ]]; then
+  echo "  Auto      : an, stündlich (aus mit: pct exec ${CTID} -- update --disable-auto)"
+else
+  echo "  Auto      : aus (an mit: pct exec ${CTID} -- update --enable-auto)"
+fi
 echo "  Konsole   : pct enter ${CTID}"
 echo
 echo "  Nächster Schritt: DNS-Eintrag und NPMplus-Proxy-Host auf http://${IP:-<ip>}:80 anlegen."
